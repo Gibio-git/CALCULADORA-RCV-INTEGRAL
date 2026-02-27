@@ -20,6 +20,15 @@ st.title = "CALCULADORA-RCV-INTEGRAL"
 # st.divider()
 
 #########################################
+def validar_input_bool(valor, nombre):
+    global input_err
+    if valor is None:
+        st.warning(f"⚠️ Seleccione {nombre}")
+
+def validar_input_num(x, nombre):
+    global input_err
+    if x is None or x <= 0:
+        st.warning(f"⚠️ {nombre} debe ser mayor a 0")
 
 col1, col2, col3 = st.columns([1, 1.5, 1])
 
@@ -30,9 +39,11 @@ with col2:
         options=sexo.keys(),
         format_func=lambda option: sexo[option],
         key="sexo"
-    )  
+    )
+    validar_input_bool(sexo, "Sexo")
 
     edad = st.number_input("Edad", min_value=0, max_value=120, step=1, key="edad")
+    validar_input_num(edad, "Edad")
 
     tabaco = {0:"No", 1:"Sí"}
     tabaco = st.segmented_control(
@@ -41,49 +52,34 @@ with col2:
         format_func=lambda option: tabaco[option],
         key="tabaco"
     )
+    validar_input_bool(tabaco, "Consumo de tabaco")
 
     cintura = st.number_input("Perímetro de cintura (cm)", min_value=0.0, max_value=200.0, step=0.1, key="cintura")
+    validar_input_num(cintura, "Perímetro de cintura")
 
     vop = st.number_input("VOP", min_value=0.0, max_value=30.0, step=0.1, key="vop")
+    validar_input_num(vop, "VOP")
 
     pas = st.number_input("Presión Arterial Sistólica (mmHg)", min_value=0.0, max_value=300.0, step=0.1, key="pas")
+    validar_input_num(pas, "Presión Arterial Sistólica")
 
     pad = st.number_input("Presión Arterial Diastólica (mmHg)", min_value=0.0, max_value=200.0, step=0.1, key="pad")
+    validar_input_num(pad, "Presión Arterial Diastólica")
 
     fc = st.number_input("Frecuencia Cardíaca (lpm)", min_value=0.0, max_value=200.0, step=0.1, key="fc")
-    
-# Validaciión de inputs
-warnings = []
+    validar_input_num(fc, "Frecuencia Cardíaca")
 
-def validar_input_bool(valor, nombre):
-    if valor is None:
-        warnings.append(f"⚠️ Seleccione {nombre}")
+# Calcular (Continuar después de ingresar los datos)
+col_btn1, col_btn2, col_btn3 = st.columns([1,1.5,1])
+with col_btn3:
+    calcular = st.button("Calcular")
 
-def validar_input_num(x, nombre):
-    if x is None or x <= 0:
-        warnings.append(f"⚠️ {nombre} debe ser mayor a 0")
-
-fields = {
-    "Sexo": (sexo, "bool"),
-    "si fuma Tabaco": (tabaco, "bool"),
-    "Edad": (edad, "num"),
-    "Cintura": (cintura, "num"),
-    "VOP": (vop, "num"),
-    "PAS": (pas, "num"),
-    "PAD": (pad, "num"),
-    "FC": (fc, "num")
-}
-
-for nombre, (valor, tipo) in fields.items():
-    if tipo == "bool":
-        validar_input_bool(valor, nombre)
-    elif tipo == "num":
-        validar_input_num(valor, nombre)
-
-if warnings:
-    for w in warnings:
-        st.warning(w)
+while not calcular:
     st.stop()
+    if calcular:
+        break
+
+
 
 # RIESGO CARDIOVASCULAR
 #Cálculo del Riesgo Cardiovascular SCORE2
@@ -200,8 +196,8 @@ def RCV_reclasif_PC(categoria, sexo, cintura_cm):
 
 
 # ANÁLISIS INTEGRAL
-def Analizar_RCV (VOP, EDAD, FC, SEXO, PAS, PAD, TABACO, PC):
-   #Determinación de la eVOP (estimated PWV, complementaria, Greve SV, et al. “Estimated Pulse Wave Velocity Calculated from Age and Mean Arterial Blood Pressure")
+def Ajuste_VOP (VOP, EDAD, FC, SEXO, PAS, PAD):
+    #Determinación de la eVOP (estimated PWV, complementaria, Greve SV, et al. “Estimated Pulse Wave Velocity Calculated from Age and Mean Arterial Blood Pressure")
    PAM=PAD+0.4*(PAS-PAD)
    eVOP=9.587-0.402*EDAD+4.560e-3*EDAD**2-2.621e-5*EDAD**2*PAM+3.176e-3*EDAD*PAM-1.832e-2*PAM
 
@@ -209,38 +205,42 @@ def Analizar_RCV (VOP, EDAD, FC, SEXO, PAS, PAD, TABACO, PC):
    #Se utiliza la fórmula de ajuste poblacional VOP_norm=VOP_med-beta_PAS*(PAS-PAS_ref)-beta_FC*(FC-FC_ref) - beta_SEXO*(Sexo-Sexo_ref) (McEniery et al. Normal Vascular Ageing 2005)
    #Se ajusta por SEXO dado que las curvas son poblacionales (no separadas)
    VOP_norm = VOP - 0.03*(PAS-120) - 0.01*(FC-75) - 0.25*(SEXO-0)
+   
+   # Armado del dataframe
+   datos_vop = {
+    #   "DATOS DEMOGRÁFICOS": [""],
+    #   "Edad Cronológica (años)": [f"{EDAD:.1f}"],
+    #   "Sexo (0=Femeninio, 1=Masculino)": [f"{SEXO}"],
+    #   "Presión Arterial Braquial Sistólica (mmHg)": [f"{PAS:.1f}"],
+    #   "Presión Arterial Braquial Diastólica (mmHg)": [f"{PAD:.1f}"],
+    #   "Frecuencia Cardíaca (lpm)": [f"{FC:.1f}"],
+    #   "Consumo de Tabaco (1=SI, 0=NO)": [f"{TABACO}"],
+    #   "Perímetro de Cintura (cm)": [f"{PC}"],
+    #   "-": [""],
+      "Velocidad de la Onda del Pulso CF medida (m/s)": [f"{VOP:.1f}"],
+      "Velocidad de la Onda del Pulso CF ajustada 120/@75 (m/s)": [f"{VOP_norm:.1f}"],
+      "Velocidad de la Onda del Pulso CF estimada (clínica) (m/s)": [f"{eVOP:.1f}"],
+   }
+   df_Eval_vop = pd.DataFrame.from_dict(datos_vop, orient='index', columns=['Valor'])
 
+   return df_Eval_vop, VOP_norm
+
+def Analizar_RCV (VOP, EDAD, FC, SEXO, PAS, PAD, TABACO, PC, VOP_norm):
    #Cálculo RCV
-   RCV_10a,categoria = RCV_Score2(VOP, EDAD, FC, SEXO, PAS, PAD, TABACO)
+   RCV_10a, categoria = RCV_Score2(VOP, EDAD, FC, SEXO, PAS, PAD, TABACO)
    #Ajuste del RCV por VOP
    categoria_VOP=RCV_reclasif_VOP(categoria, VOP_norm)
    #Ajuste del RCV por PERÍMETRO DE CINTURA
    categoria_PC=RCV_reclasif_PC(categoria, SEXO, PC)
 
    #Armado del dataframe
-   datos_individuales = {
-      "DATOS DEMOGRÁFICOS": [""],
-      "Edad Cronológica (años)": [f"{EDAD:.1f}"],
-      "Sexo (0=Femeninio, 1=Masculino)": [f"{SEXO}"],
-      "Presión Arterial Braquial Sistólica (mmHg)": [f"{PAS:.1f}"],
-      "Presión Arterial Braquial Diastólica (mmHg)": [f"{PAD:.1f}"],
-      "Frecuencia Cardíaca (lpm)": [f"{FC:.1f}"],
-      "Consumo de Tabaco (1=SI, 0=NO)": [f"{TABACO}"],
-      "Perímetro de Cintura (cm)": [f"{PC}"],
-      "-": [""],
-      "VELOCIDAD DE LA ONDA DEL PULSO ARTERIAL (INDICADOR DE RIGIDEZ AÓRTICA)": [""],
-      "Velocidad de la Onda del Pulso CF medida (m/s)": [f"{VOP:.1f}"],
-      "Velocidad de la Onda del Pulso CF ajustada 120/@75 (m/s)": [f"{VOP_norm:.1f}"],
-      "Velocidad de la Onda del Pulso CF estimada (clínica) (m/s)": [f"{eVOP:.1f}"],
-      "--": [""],
-      "RIESGO CARDIOVASCULAR": [""],
+   datos_riesgo = {
       "Riesgo Cardiovascular (No Lab) (%)": [f"{RCV_10a:.1f} ({categoria})"],
       "Riesgo Cardiovascular reclasificado por VOP": [categoria_VOP],
       "Riesgo Cardiovascular reclasificado por PERÍMETRO DE CINTURA": [categoria_PC],
-      "---": [""],
    }
    # Crear DataFrame vertical: índice = etiquetas, columna única de valores
-   df_Eval_Individuo = pd.DataFrame.from_dict(datos_individuales, orient='index', columns=['Valor'])
+   df_Eval_riesgo = pd.DataFrame.from_dict(datos_riesgo, orient='index', columns=['valor'])
 #    df_Eval_Individuo = df_Eval_Individuo.style.set_table_styles(
 #     [{'selector': 'th.row_heading',
 #       'props': [('text-align', 'left')]}]
@@ -249,7 +249,7 @@ def Analizar_RCV (VOP, EDAD, FC, SEXO, PAS, PAD, TABACO, PC):
 #     **{'text-align': 'left'}
 #    )
 
-   return df_Eval_Individuo, VOP_norm
+   return df_Eval_riesgo
 
 
 # EVALUACIÓN
@@ -266,17 +266,23 @@ def Analizar_RCV (VOP, EDAD, FC, SEXO, PAS, PAD, TABACO, PC):
 # }
 
 #Análisis
-Eval, VOP_norm=Analizar_RCV(vop, edad, fc, sexo, pas, pad, tabaco, cintura)
+Eval_VOP, VOP_norm = Ajuste_VOP(vop, edad, fc, sexo, pas, pad)
+Eval_riesgo = Analizar_RCV(vop, edad, fc, sexo, pas, pad, tabaco, cintura, VOP_norm)
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.colheader_justify', 'left')
 
 #Visualización de los resultados obtenidos
-df_resultados = Eval.reset_index()
-df_resultados.columns = ["Campo", "Valor"]
+df_resultados_riesgo = Eval_riesgo.reset_index()
+df_resultados_vop = Eval_VOP.reset_index()
+df_resultados_riesgo.columns = ["Campo", "Valor"]
+df_resultados_vop.columns = ["Campo", "Valor"]
 
+'''
+### Velocidad de la Onda del Pulso Arterial (Indicador de rigidez aórtica)
+'''
 st.dataframe(
-    df_resultados,
-    use_container_width=True,
+    df_resultados_vop,
+    width='stretch',
     hide_index=True,
     column_config={
         "Campo": st.column_config.TextColumn(
@@ -291,7 +297,7 @@ st.dataframe(
 )
 
 '''
-## EDAD-ESTIMADA-SEGÚN-VOP
+### Edad Vascular según VOP
 '''
 # Extraer datos de JSON
 with open('data/vop_data.json') as f:
@@ -310,7 +316,7 @@ curvas_config = [
 ]
 
 # Crear gráfico
-fig1, ax1 = plt.subplots(figsize=(6, 2))
+fig1, ax1 = plt.subplots(figsize=(10, 6))
 fig, ax = plt.subplots(figsize=(6, 2))
 curvas = []
 
@@ -320,16 +326,17 @@ def generar_curva(ax, datos_x, datos_y, color, nombre, linea):
 
 # Dibujar curva por defecto
 curva_def = generar_curva(ax1, data[curva_default]["x"], data[curva_default]["y"], "limegreen", "50", linea)
-ax1.set_xlabel("Edad Estimada (años)")
+ax1.set_xlabel("Edad Vascular (años)")
 ax1.set_ylabel("VOP")
-ax1.set_title(titulo + " - Mediana")
+ax1.set_title(titulo + " - P50")
+ax1.grid(True)
 
 # Dibujar curvas restantes
 for key, color, label in curvas_config:
     curva = generar_curva(ax, data[key]["x"], data[key]["y"], color, label, linea)
     curvas.append(curva)
 
-ax.set_xlabel("Edad Estimada (años)")
+ax.set_xlabel("Edad vascular (años)")
 ax.set_ylabel("VOP")
 ax.set_title(titulo)
 ax.xaxis.set_major_locator(plt.MultipleLocator(10))
@@ -346,32 +353,84 @@ def edad_por_vop(curva, vop):
 def armar_dataframe(curvas, vop):
     rows = []
     for curva in curvas:
-        edad_estimada = edad_por_vop(curva, vop)
+        edad_vascular = edad_por_vop(curva, vop)
         rows.append({
-            "Curva": curva.get_label(),
-            "Edad Estimada": round(edad_estimada, 2)
+            "Percentil": curva.get_label(),
+            "Edad vascular": round(edad_vascular, 2)
         })
     return pd.DataFrame(rows)
 
-# Función marcar edad estimada en el gráfico
-def marcar_edad_estimada(ax, edad, vop):
+# Función marcar edad vascular en el gráfico
+def marcar_edad_vascular(ax, edad, vop):
     ax.plot(edad, vop, marker="x", color="red")
 
-# Calcular edad estimada y marcar en gráfico
-edad_estimada_def = edad_por_vop(curva_def, vop)
-marcar_edad_estimada(ax1, edad_estimada_def, vop)
-df_resultado = armar_dataframe([curva_def], vop)
+# Calcular edad vascular y marcar en gráfico
+edad_vascular_def = edad_por_vop(curva_def, VOP_norm)
+marcar_edad_vascular(ax1, edad_vascular_def, VOP_norm)
+df_resultado = armar_dataframe([curva_def], VOP_norm)
 
 for curva in curvas:
-    edad_estimada = edad_por_vop(curva, vop)
-    marcar_edad_estimada(ax, edad_estimada, vop)
-df_resultados = armar_dataframe(curvas, vop) 
+    edad_vascular = edad_por_vop(curva, VOP_norm)
+    marcar_edad_vascular(ax, edad_vascular, VOP_norm)
+df_resultados = armar_dataframe(curvas, VOP_norm) 
 
 # Mostrar gráfico y tabla
+# Gráfico de curvas P50 - Mediana
 st.pyplot(fig1)
-st.dataframe(df_resultado, width=400, hide_index=True)
-st.write("Edad Real:", edad, " vs  Edad Estimada: ", edad_estimada_def)
+# st.dataframe(df_resultado, width=400, hide_index=True)
+st.write("Edad Real:", edad, " vs  Edad Vascular: ", edad_vascular_def)
 
-
-st.pyplot(fig)
+# Gráfico de curvas extras
+'''
+### Edad Vascular Según VOP - Percentiles 
+'''
+# st.pyplot(fig)
 st.dataframe(df_resultados, width=400, hide_index=True) 
+
+
+
+def percentil_mas_cercano(data, edad_real, vop_norm, sexo):
+    
+    letra = 'm' if sexo == 1 else 'f'
+    percentiles = [5, 25, 50, 75, 95]
+    
+    # Para cada percentil, buscar qué tanto difiere entre las VOPs
+    diferencias = {}
+    for p in percentiles:
+        key = f"{letra}{p}"
+        
+        edades = np.array(data[key]["x"])
+        vops = np.array(data[key]["y"])
+        
+        # Hallar VOP esperada en esa edad
+        vop_esperada = np.interp(edad_real, edades, vops)
+        
+        diferencias[p] = abs(vop_norm - vop_esperada)
+    
+    # Devolver la diferencia con el menor valor
+    return min(diferencias, key=diferencias.get)
+
+p_cercano = percentil_mas_cercano(data, edad, VOP_norm, sexo)
+
+st.write(f"Percentil más cercano para su edad: P{p_cercano}")
+st.write(f"El {p_cercano}% de las personas de su misma edad tienen una VOP menor")
+
+
+'''
+### Riesgo Cardiovascular
+'''
+st.dataframe(
+    df_resultados_riesgo,
+    width='stretch',
+    hide_index=True,
+    column_config={
+        "Campo": st.column_config.TextColumn(
+            "Campo",
+            width="large"
+        ),
+        "Valor": st.column_config.TextColumn(
+            "Valor",
+            width="small"
+        )
+    }
+)
